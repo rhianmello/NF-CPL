@@ -108,14 +108,12 @@
     const n = normalizeOcr(raw);
     const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const normalizedLines = lines.map(normalizeOcr);
-    const t = String(type || '').toUpperCase();
 
     // Só aceitamos números ligados a um rótulo que identifique o documento.
     // Isso evita pegar, por exemplo, código de produto 0621 ou valor 178,20.
     const patterns = [
       /(?:NFC\s*-?\s*E|NF\s*-?\s*E|NFE)[^0-9]{0,16}(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,6}([0-9]{1,12})\b/,
       /(?:NUMERO|N[O0º°]?)[^0-9]{0,8}(?:DA\s+)?(?:NOTA\s+FISCAL|NF\s*-?\s*E|NFE|NFC\s*-?\s*E)[^0-9]{0,8}([0-9]{1,12})\b/,
-      /(?:NOTA\s+FISCAL|NF\s*-?\s*E|NFE|NFC\s*-?\s*E)[^0-9]{0,24}([0-9]{1,12})\b/,
       /(?:RECIBO|COMANDA)[^0-9]{0,12}(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,6}([0-9]{1,12})\b/,
       /(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,5}([0-9]{1,12})\b/
     ];
@@ -133,8 +131,8 @@
         const candidate = cleanCandidate(m[m.length - 1]);
         if (!candidate) continue;
 
-        // O último padrão é genérico; só pode ser usado quando o documento
-        // explicitamente for um recibo/comanda e a linha não parecer item.
+        // O padrão genérico "Nº 123" só é aceito quando há contexto de NF,
+        // DANFE, recibo ou comanda na própria linha.
         if (i === patterns.length - 1 && !/RECIBO|COMANDA|NOTA|NFC|NFE|DANFE/.test(line)) continue;
 
         candidates.push({ value: candidate, score: 100 - i * 15, lineIndex: entry.lineIndex });
@@ -142,26 +140,25 @@
     }
 
     // Algumas NFC-e têm o rótulo e o número em linhas consecutivas.
+    // Só usa esse fallback quando a janela não contém uma linha de item/produto.
     for (let i = 0; i < normalizedLines.length; i++) {
       const line = normalizedLines[i];
       if (isClearlyProductOrItemLine(line)) continue;
       if (!/(?:NFC\s*-?\s*E|NF\s*-?\s*E|NFE|DANFE|NOTA\s+FISCAL)/.test(line)) continue;
 
-      const windowText = normalizedLines.slice(i, i + 3).join(' ');
-      if (isClearlyProductOrItemLine(windowText)) continue;
-      const nums = windowText.match(/\b\d{1,12}\b/g) || [];
-      for (const num of nums) {
-        const candidate = cleanCandidate(num);
-        if (candidate && candidate.length <= 12) {
-          candidates.push({ value: candidate, score: 70, lineIndex: i });
-          break;
-        }
+      const windowLines = normalizedLines.slice(i, i + 3);
+      const windowText = windowLines.join(' ');
+      if (windowLines.some(isClearlyProductOrItemLine)) continue;
+
+      const explicit = windowText.match(/(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,8}([0-9]{1,12})\b/);
+      if (explicit) {
+        const candidate = cleanCandidate(explicit[1]);
+        if (candidate) candidates.push({ value: candidate, score: 75, lineIndex: i });
       }
     }
 
     if (!candidates.length) return '';
 
-    // Prioriza o padrão mais explícito. Em empate, mantém a primeira ocorrência.
     candidates.sort((a, b) => b.score - a.score || a.lineIndex - b.lineIndex);
     return candidates[0].value;
   }
@@ -216,8 +213,7 @@
       if (!dataUrl) throw new Error('imagem não encontrada');
       const img = await loadImage(dataUrl);
 
-      // Aumenta a chance de encontrar o número no cabeçalho ou rodapé da NF-e,
-      // sem confiar no OCR geral e sem limitar a leitura à região do item.
+      // Procura no cabeçalho, região central, rodapé e finalmente na imagem inteira.
       const regions = [
         cropToCanvas(img, 0.00, 0.42),
         cropToCanvas(img, 0.35, 0.40),
