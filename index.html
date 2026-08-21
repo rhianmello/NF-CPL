@@ -9,201 +9,27 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
 <header class="app-bar">
-  <div class="app-bar__brand">
-    <div class="app-bar__logo" id="logoSlot">CPL</div>
-    <div class="app-bar__title">
-      <h1>Demonstrativo de Caixa</h1>
-      <p id="obraLabel">Obra: COMPERJ</p>
-    </div>
-  </div>
+  <div class="app-bar__brand"><div class="app-bar__logo" id="logoSlot">CPL</div><div class="app-bar__title"><h1>Demonstrativo de Caixa</h1><p id="obraLabel">Obra: COMPERJ</p></div></div>
   <button class="btn btn--ghost" id="btnConfig" type="button">⚙️ Cabeçalho</button>
 </header>
-
 <main id="app">
-
-  <!-- ============ VIEW: TABELA ============ -->
-  <section class="view" id="view-table" data-view="table">
-
-    <div class="toolbar">
-      <button class="btn btn--primary" id="btnLerDocumentos" type="button">📷 Ler Documentos</button>
-      <div class="toolbar__spacer"></div>
-      <button class="btn btn--outline" id="btnBaixarExcel" type="button">⬇️ Baixar Excel</button>
-      <button class="btn btn--outline" id="btnGerarPdf" type="button">🖨️ Gerar PDF</button>
-    </div>
-
-    <div class="ledger" id="ledgerCard">
-      <div class="ledger__stamp" id="ledgerDcNum">DC Nº —</div>
-      <div class="ledger__head">
-        <div class="ledger__head-row"><span>Obra</span><strong id="hObra">COMPERJ</strong></div>
-        <div class="ledger__head-row"><span>Período</span><strong id="hPeriodo">—</strong></div>
-        <div class="ledger__head-row"><span>Data</span><strong id="hData">—</strong></div>
-        <div class="ledger__head-row"><span>Responsável</span><strong id="hResponsavel">—</strong></div>
-      </div>
-
-      <div class="table-wrap">
-        <table class="ledger-table" id="tabelaLancamentos">
-          <thead>
-            <tr>
-              <th class="col-item">Item</th>
-              <th class="col-data">Data</th>
-              <th class="col-doc">Num Doc</th>
-              <th class="col-hist">Fornecedor/Histórico</th>
-              <th class="col-money">Entrada</th>
-              <th class="col-money">Saída</th>
-              <th class="col-actions"></th>
-            </tr>
-          </thead>
-          <tbody id="tbodyLancamentos">
-            <!-- linhas via JS -->
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" class="totals-label">Totais</td>
-              <td class="col-money" id="totalEntrada">0,00</td>
-              <td class="col-money" id="totalSaida">0,00</td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-        <p class="empty-state" id="emptyState">Nenhum lançamento ainda. Toque em <strong>📷 Ler Documentos</strong> para começar.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ VIEW: UPLOAD ============ -->
-  <section class="view" id="view-upload" data-view="upload" hidden>
-    <div class="panel">
-      <button class="btn btn--text" id="btnVoltarDeUpload" type="button">← Voltar</button>
-      <h2>Enviar foto dos documentos</h2>
-      <p class="panel__hint">Você pode fotografar uma folha com vários documentos colados (DANFEs, recibos, comandas). O sistema tenta separar cada um automaticamente.</p>
-
-      <div class="dropzone" id="dropzone">
-        <input type="file" id="inputArquivo" accept="image/png,image/jpeg,image/jpg" hidden>
-        <input type="file" id="inputCamera" accept="image/*" capture="environment" hidden>
-        <div class="dropzone__inner" id="dropzoneEmpty">
-          <p class="dropzone__icon">📷</p>
-          <p>Arraste uma imagem aqui, ou</p>
-          <div class="dropzone__buttons">
-            <button class="btn btn--primary" id="btnEscolherArquivo" type="button">Selecionar imagem</button>
-            <button class="btn btn--outline" id="btnTirarFoto" type="button">Tirar foto</button>
-          </div>
-          <p class="dropzone__formats">JPG, JPEG ou PNG</p>
-        </div>
-        <div class="dropzone__preview" id="dropzonePreview" hidden>
-          <img id="previewImg" alt="Pré-visualização da foto enviada">
-          <button class="btn btn--text" id="btnTrocarImagem" type="button">Trocar imagem</button>
-        </div>
-      </div>
-
-      <div class="progress" id="progressBox" hidden>
-        <div class="progress__label" id="progressLabel">Analisando…</div>
-        <div class="progress__bar"><div class="progress__fill" id="progressFill"></div></div>
-        <button class="btn btn--text" id="btnCancelarAnalise" type="button">Cancelar</button>
-      </div>
-
-      <button class="btn btn--primary btn--wide" id="btnAnalisar" type="button" hidden>Detectar documentos</button>
-    </div>
-  </section>
-
-  <!-- ============ VIEW: REVISÃO ============ -->
-  <section class="view" id="view-review" data-view="review" hidden>
-    <div class="panel panel--wide">
-      <button class="btn btn--text" id="btnVoltarDeRevisao" type="button">← Voltar e enviar outra foto</button>
-      <h2>Documentos identificados</h2>
-      <p class="panel__hint" id="reviewHint">Confira e edite os campos antes de adicionar à tabela.</p>
-
-      <div class="cards-grid" id="cardsGrid"></div>
-
-      <button class="btn btn--outline btn--wide" id="btnAdicionarCardVazio" type="button">+ Adicionar documento manualmente</button>
-
-      <div class="review-actions">
-        <button class="btn btn--text" id="btnCancelarRevisao" type="button">Cancelar</button>
-        <button class="btn btn--primary btn--wide" id="btnConfirmarAdicao" type="button">Adicionar Documentos à Tabela</button>
-      </div>
-    </div>
-  </section>
-
+<section class="view" id="view-table" data-view="table">
+  <div class="toolbar"><button class="btn btn--primary" id="btnLerDocumentos" type="button">📷 Ler Documento</button><div class="toolbar__spacer"></div><button class="btn btn--outline" id="btnBaixarExcel" type="button">⬇️ Baixar Excel</button><button class="btn btn--outline" id="btnGerarPdf" type="button">🖨️ Gerar PDF</button></div>
+  <div class="ledger" id="ledgerCard"><div class="ledger__stamp" id="ledgerDcNum">DC Nº —</div><div class="ledger__head"><div class="ledger__head-row"><span>Obra</span><strong id="hObra">COMPERJ</strong></div><div class="ledger__head-row"><span>Período</span><strong id="hPeriodo">—</strong></div><div class="ledger__head-row"><span>Data</span><strong id="hData">—</strong></div><div class="ledger__head-row"><span>Responsável</span><strong id="hResponsavel">—</strong></div></div>
+    <div class="table-wrap"><table class="ledger-table" id="tabelaLancamentos"><thead><tr><th class="col-item">Item</th><th class="col-data">Data</th><th class="col-doc">Num Doc</th><th class="col-hist">Fornecedor/Histórico</th><th class="col-money">Entrada</th><th class="col-money">Saída</th><th class="col-actions"></th></tr></thead><tbody id="tbodyLancamentos"></tbody><tfoot><tr><td colspan="4" class="totals-label">Totais</td><td class="col-money" id="totalEntrada">0,00</td><td class="col-money" id="totalSaida">0,00</td><td></td></tr></tfoot></table><p class="empty-state" id="emptyState">Nenhum lançamento ainda. Toque em <strong>📷 Ler Documento</strong> para começar.</p></div>
+  </div>
+</section>
+<section class="view" id="view-upload" data-view="upload" hidden><div class="panel"><button class="btn btn--text" id="btnVoltarDeUpload" type="button">← Voltar</button><h2>Enviar foto do documento</h2><p class="panel__hint">Envie <strong>uma única NF, DANFE ou recibo por foto</strong>. A imagem deve estar em pé, na vertical. Se o sistema não reconhecer o documento com segurança, ele avisará em vez de preencher dados errados.</p>
+  <div class="dropzone" id="dropzone"><input type="file" id="inputArquivo" accept="image/png,image/jpeg,image/jpg" hidden><input type="file" id="inputCamera" accept="image/*" capture="environment" hidden><div class="dropzone__inner" id="dropzoneEmpty"><p class="dropzone__icon">📷</p><p><strong>1 documento por imagem</strong></p><p>Use uma foto nítida e vertical.</p><div class="dropzone__buttons"><button class="btn btn--primary" id="btnEscolherArquivo" type="button">Selecionar imagem</button><button class="btn btn--outline" id="btnTirarFoto" type="button">Tirar foto</button></div><p class="dropzone__formats">JPG, JPEG ou PNG</p></div><div class="dropzone__preview" id="dropzonePreview" hidden><img id="previewImg" alt="Pré-visualização do documento enviado"><button class="btn btn--text" id="btnTrocarImagem" type="button">Trocar imagem</button></div></div>
+  <div class="progress" id="progressBox" hidden><div class="progress__label" id="progressLabel">Analisando…</div><div class="progress__bar"><div class="progress__fill" id="progressFill"></div></div><button class="btn btn--text" id="btnCancelarAnalise" type="button">Cancelar</button></div>
+  <button class="btn btn--primary btn--wide" id="btnAnalisar" type="button" hidden>Ler documento</button></div></section>
+<section class="view" id="view-review" data-view="review" hidden><div class="panel panel--wide"><button class="btn btn--text" id="btnVoltarDeRevisao" type="button">← Voltar e enviar outra foto</button><h2>Conferência do documento</h2><p class="panel__hint" id="reviewHint">Confira e edite os campos antes de adicionar à tabela.</p><div class="cards-grid" id="cardsGrid"></div><button class="btn btn--outline btn--wide" id="btnAdicionarCardVazio" type="button">+ Adicionar documento manualmente</button><div class="review-actions"><button class="btn btn--text" id="btnCancelarRevisao" type="button">Cancelar</button><button class="btn btn--primary btn--wide" id="btnConfirmarAdicao" type="button">Adicionar à Tabela</button></div></div></section>
 </main>
-
-<!-- ============ MODAL: CABEÇALHO ============ -->
-<div class="modal" id="modalConfig" hidden>
-  <div class="modal__box">
-    <h2>Cabeçalho do Demonstrativo</h2>
-    <label>Obra
-      <input type="text" id="cfgObra" value="COMPERJ">
-    </label>
-    <label>Período
-      <input type="text" id="cfgPeriodo" placeholder="ex.: 01/08/2026 a 31/08/2026">
-    </label>
-    <label>Data
-      <input type="date" id="cfgData">
-    </label>
-    <label>Responsável
-      <input type="text" id="cfgResponsavel" placeholder="Nome do responsável">
-    </label>
-    <label>DC Nº
-      <input type="text" id="cfgDcNum" placeholder="ex.: 014">
-    </label>
-    <label>Logo (imagem)
-      <input type="file" id="cfgLogo" accept="image/*">
-    </label>
-    <div class="modal__actions">
-      <button class="btn btn--text" id="btnCancelarConfig" type="button">Cancelar</button>
-      <button class="btn btn--primary" id="btnSalvarConfig" type="button">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============ MODAL: VISUALIZAR / RECORTAR ============ -->
-<div class="modal" id="modalCrop" hidden>
-  <div class="modal__box modal__box--crop">
-    <h2>Ajustar recorte</h2>
-    <p class="panel__hint">Arraste sobre a imagem para desenhar a área do documento. Use os botões para girar.</p>
-    <div class="crop-stage" id="cropStage">
-      <canvas id="cropCanvas"></canvas>
-    </div>
-    <div class="crop-controls">
-      <button class="btn btn--outline" id="btnGirarEsquerda" type="button">⟲ Girar</button>
-      <button class="btn btn--outline" id="btnGirarDireita" type="button">⟳ Girar</button>
-      <button class="btn btn--text" id="btnResetCrop" type="button">Imagem inteira</button>
-    </div>
-    <div class="modal__actions">
-      <button class="btn btn--text" id="btnCancelarCrop" type="button">Cancelar</button>
-      <button class="btn btn--primary" id="btnConfirmarCrop" type="button">Confirmar recorte</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============ MODAL: VISUALIZAR DOCUMENTO ============ -->
-<div class="modal" id="modalView" hidden>
-  <div class="modal__box modal__box--view">
-    <button class="btn btn--text modal__close" id="btnFecharView" type="button">Fechar ✕</button>
-    <img id="viewImg" alt="Documento">
-  </div>
-</div>
-
+<div class="modal" id="modalConfig" hidden><div class="modal__box"><h2>Cabeçalho do Demonstrativo</h2><label>Obra<input type="text" id="cfgObra" value="COMPERJ"></label><label>Período<input type="text" id="cfgPeriodo" placeholder="ex.: 01/08/2026 a 31/08/2026"></label><label>Data<input type="date" id="cfgData"></label><label>Responsável<input type="text" id="cfgResponsavel" placeholder="Nome do responsável"></label><label>DC Nº<input type="text" id="cfgDcNum" placeholder="ex.: 014"></label><label>Logo (imagem)<input type="file" id="cfgLogo" accept="image/*"></label><div class="modal__actions"><button class="btn btn--text" id="btnCancelarConfig" type="button">Cancelar</button><button class="btn btn--primary" id="btnSalvarConfig" type="button">Salvar</button></div></div></div>
+<div class="modal" id="modalCrop" hidden><div class="modal__box modal__box--crop"><h2>Ajustar recorte</h2><p class="panel__hint">Arraste sobre a imagem para desenhar a área do documento. Use os botões para girar.</p><div class="crop-stage" id="cropStage"><canvas id="cropCanvas"></canvas></div><div class="crop-controls"><button class="btn btn--outline" id="btnGirarEsquerda" type="button">⟲ Girar</button><button class="btn btn--outline" id="btnGirarDireita" type="button">⟳ Girar</button><button class="btn btn--text" id="btnResetCrop" type="button">Imagem inteira</button></div><div class="modal__actions"><button class="btn btn--text" id="btnCancelarCrop" type="button">Cancelar</button><button class="btn btn--primary" id="btnConfirmarCrop" type="button">Confirmar recorte</button></div></div></div>
+<div class="modal" id="modalView" hidden><div class="modal__box modal__box--view"><button class="btn btn--text modal__close" id="btnFecharView" type="button">Fechar ✕</button><img id="viewImg" alt="Documento"></div></div>
 <div class="toast" id="toast" hidden></div>
-
-<!-- ===== Bibliotecas externas (CDN) ===== -->
-<!-- OpenCV.js: detecção de contornos / recorte / rotação -->
-<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="window.__cvReady && window.__cvReady()" onerror="window.__cvFailed && window.__cvFailed()"></script>
-<!-- Tesseract.js: OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
-<!-- SheetJS: geração de Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- jsPDF + autotable: geração de PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-
-<!-- ===== Código da aplicação ===== -->
-<script src="js/storage.js"></script>
-<script src="js/fieldParser.js"></script>
-<script src="js/documentDetector.js"></script>
-<script src="js/ocrEngine.js"></script>
-<script src="js/exportExcel.js"></script>
-<script src="js/exportPdf.js"></script>
-<script src="js/app.js"></script>
-</body>
-</html>
+<script async src="https://docs.opencv.org/4.9.0/opencv.js"></script><script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="js/storage.js"></script><script src="js/fieldParser.js"></script><script src="js/documentDetector.js"></script><script src="js/ocrEngine.js"></script><script src="js/exportExcel.js"></script><script src="js/exportPdf.js"></script><script src="js/app.js"></script>
+</body></html>
