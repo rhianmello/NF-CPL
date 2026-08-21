@@ -267,3 +267,6 @@ tfoot td{ padding:12px; font-family: var(--font-mono); font-weight:600; border-t
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
 }
+[hidden] {
+  display: none !important;
+}
