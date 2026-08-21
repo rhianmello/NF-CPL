@@ -1,6 +1,6 @@
 /* Campo obrigatório para o número da NF/NF-e/recibo/comanda.
- * A leitura do número é propositalmente separada do OCR geral para evitar
- * que códigos de produto, valores ou outros números do documento sejam usados.
+ * A leitura do número é propositalmente separada do OCR geral.
+ * IMPORTANTE: nunca aceita um número genérico da imagem.
  */
 (function () {
   'use strict';
@@ -30,7 +30,6 @@
       .doc-number-field label { display:block; margin-bottom:6px; }
       .doc-number-field input { width:100%; box-sizing:border-box; }
       .doc-number-field__hint { display:block; margin-top:5px; font-size:.82rem; opacity:.72; }
-      .doc-number-field__hint.is-reading { opacity:.9; }
       .doc-number-field.is-invalid input { border-color:#d9534f !important; box-shadow:0 0 0 2px rgba(217,83,79,.12); }
       .doc-number-field.is-invalid .doc-number-field__hint { color:#c0392b; opacity:1; font-weight:600; }
       .doc-number-field.is-found input { border-color:#4d9a61 !important; box-shadow:0 0 0 2px rgba(77,154,97,.12); }
@@ -88,86 +87,77 @@
       .replace(/[º°ª]/g, 'O')
       .replace(/[|]/g, 'I')
       .replace(/[\u2013\u2014]/g, '-')
+      .replace(/NFC\s*[-–—]?\s*[E3€]/g, 'NFC-E')
+      .replace(/NF\s*[-–—]?\s*[E3€]/g, 'NF-E')
       .replace(/\s+/g, ' ');
   }
 
   function cleanCandidate(value) {
     const v = String(value || '').replace(/\D/g, '');
-    if (!v || v.length > 12) return '';
-    if (/^0+$/.test(v)) return '';
+    if (!v || v.length > 12 || /^0+$/.test(v)) return '';
     return v;
   }
 
-  function isClearlyProductOrItemLine(line) {
-    const s = normalizeOcr(line);
-    return /\b(?:COD|CODIGO|C[OÓ]D|ITEM|QTD|QTDE|QUANT|UN|VL\.?\s*UNIT|VL\.?\s*TOTAL|DESCRICAO|DESPESAS?|PRODUTO|SERVICO|SERVICOS)\b/.test(s);
+  function isBadContext(line) {
+    return /\b(?:COD|CODIGO|ITEM|QTD|QTDE|QUANT|UN|VL\.?\s*UNIT|VL\.?\s*TOTAL|DESCRICAO|DESPESAS?|PRODUTO|SERVICO|SERVICOS|CNPJ|CPF|INSCRICAO|CHAVE\s+DE\s+ACESSO|PROTOCOLO)\b/.test(normalizeOcr(line));
   }
 
-  function extractNumber(text, type) {
+  function extractNumber(text) {
     const raw = String(text || '');
-    const n = normalizeOcr(raw);
     const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const normalizedLines = lines.map(normalizeOcr);
 
-    // Só aceitamos números ligados a um rótulo que identifique o documento.
-    // Isso evita pegar, por exemplo, código de produto 0621 ou valor 178,20.
-    const patterns = [
-      /(?:NFC\s*-?\s*E|NF\s*-?\s*E|NFE)[^0-9]{0,16}(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,6}([0-9]{1,12})\b/,
-      /(?:NUMERO|N[O0º°]?)[^0-9]{0,8}(?:DA\s+)?(?:NOTA\s+FISCAL|NF\s*-?\s*E|NFE|NFC\s*-?\s*E)[^0-9]{0,8}([0-9]{1,12})\b/,
-      /(?:RECIBO|COMANDA)[^0-9]{0,12}(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,6}([0-9]{1,12})\b/,
-      /(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,5}([0-9]{1,12})\b/
+    // REGRA CRÍTICA PARA NF/NFC-e:
+    // o candidato só é válido se estiver explicitamente ligado a NFC-e/NF-e.
+    // Não existe fallback genérico para "Nº 2826", pois isso captura chave,
+    // código de item, CNPJ e outros números.
+    const explicit = [
+      /(?:NFC-E|NF-E|NFE)[^0-9]{0,30}(?:N(?:O|0)?|NUMERO)?[^0-9]{0,10}(\d{4,12})\b/,
+      /(?:NFC-E|NF-E|NFE)[^0-9]{0,12}(\d{4,12})\b/
     ];
 
     const candidates = [];
-    const searchTexts = normalizedLines.map((line, index) => ({ text: line, lineIndex: index }));
-    searchTexts.push({ text: n, lineIndex: -1 });
+    const texts = normalizedLines.map((line, i) => ({ text: line, index: i }));
+    texts.push({ text: normalizedLines.join(' '), index: -1 });
 
-    for (const entry of searchTexts) {
-      const line = entry.text;
-      if (!line || (entry.lineIndex >= 0 && isClearlyProductOrItemLine(line))) continue;
-      for (let i = 0; i < patterns.length; i++) {
-        const m = line.match(patterns[i]);
+    for (const entry of texts) {
+      if (!entry.text) continue;
+      for (const rx of explicit) {
+        const m = entry.text.match(rx);
         if (!m) continue;
-        const candidate = cleanCandidate(m[m.length - 1]);
+        const candidate = cleanCandidate(m[1]);
         if (!candidate) continue;
-
-        // O padrão genérico "Nº 123" só é aceito quando há contexto de NF,
-        // DANFE, recibo ou comanda na própria linha.
-        if (i === patterns.length - 1 && !/RECIBO|COMANDA|NOTA|NFC|NFE|DANFE/.test(line)) continue;
-
-        candidates.push({ value: candidate, score: 100 - i * 15, lineIndex: entry.lineIndex });
+        // Se a própria linha for claramente de item/código, rejeita.
+        if (entry.index >= 0 && isBadContext(entry.text)) continue;
+        candidates.push(candidate);
       }
     }
 
-    // Algumas NFC-e têm o rótulo e o número em linhas consecutivas.
-    // Só usa esse fallback quando a janela não contém uma linha de item/produto.
+    // Caso o OCR quebre "NFC-e nº" e o número em linhas consecutivas.
     for (let i = 0; i < normalizedLines.length; i++) {
-      const line = normalizedLines[i];
-      if (isClearlyProductOrItemLine(line)) continue;
-      if (!/(?:NFC\s*-?\s*E|NF\s*-?\s*E|NFE|DANFE|NOTA\s+FISCAL)/.test(line)) continue;
-
-      const windowLines = normalizedLines.slice(i, i + 3);
-      const windowText = windowLines.join(' ');
-      if (windowLines.some(isClearlyProductOrItemLine)) continue;
-
-      const explicit = windowText.match(/(?:N[O0º°]?|NUM(?:ERO)?)[^0-9]{0,8}([0-9]{1,12})\b/);
-      if (explicit) {
-        const candidate = cleanCandidate(explicit[1]);
-        if (candidate) candidates.push({ value: candidate, score: 75, lineIndex: i });
+      if (!/(?:NFC-E|NF-E|NFE)/.test(normalizedLines[i])) continue;
+      if (isBadContext(normalizedLines[i])) continue;
+      for (let j = i; j <= Math.min(i + 2, normalizedLines.length - 1); j++) {
+        const line = normalizedLines[j];
+        if (j !== i && isBadContext(line)) continue;
+        const m = line.match(/^\D{0,12}(\d{4,12})\b/);
+        if (m) {
+          const candidate = cleanCandidate(m[1]);
+          if (candidate) candidates.push(candidate);
+        }
       }
     }
 
-    if (!candidates.length) return '';
-
-    candidates.sort((a, b) => b.score - a.score || a.lineIndex - b.lineIndex);
-    return candidates[0].value;
+    // Para esta NFC-e, o número aparece no rodapé como "NFC-e nº 000063663".
+    // Se o OCR retornar zeros à esquerda, preservamos todos os dígitos.
+    return candidates[0] || '';
   }
 
   function dataUrlFromCard(card) {
     const thumb = card.querySelector('.doc-card__thumb');
     if (!thumb) return '';
     const bg = getComputedStyle(thumb).backgroundImage || thumb.style.backgroundImage || '';
-    const m = bg.match(/url\(["']?(.*?)["']?\)/);
+    const m = bg.match(/url\([\"']?(.*?)[\"']?\)/);
     return m ? m[1] : '';
   }
 
@@ -182,22 +172,12 @@
 
   function cropToCanvas(img, top, height) {
     const canvas = document.createElement('canvas');
-    const scale = Math.min(2.2, 2200 / img.width);
+    const scale = Math.min(3, 2800 / img.width);
     canvas.width = Math.max(1, Math.round(img.width * scale));
     canvas.height = Math.max(1, Math.round(img.height * height * scale));
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(
-      img,
-      0,
-      Math.round(img.height * top),
-      img.width,
-      Math.round(img.height * height),
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.drawImage(img, 0, Math.round(img.height * top), img.width, Math.round(img.height * height), 0, 0, canvas.width, canvas.height);
     return canvas;
   }
 
@@ -213,20 +193,20 @@
       if (!dataUrl) throw new Error('imagem não encontrada');
       const img = await loadImage(dataUrl);
 
-      // Procura no cabeçalho, região central, rodapé e finalmente na imagem inteira.
+      // O número de NFC-e costuma ficar no rodapé. Damos prioridade a essa região.
       const regions = [
-        cropToCanvas(img, 0.00, 0.42),
-        cropToCanvas(img, 0.35, 0.40),
-        cropToCanvas(img, 0.58, 0.42),
+        cropToCanvas(img, 0.62, 0.38),
+        cropToCanvas(img, 0.52, 0.48),
+        cropToCanvas(img, 0.00, 0.35),
         cropToCanvas(img, 0.00, 1.00)
       ];
 
       let found = '';
       for (const region of regions) {
-        if (hint) hint.textContent = 'Lendo especificamente o número da NF…';
+        if (hint) hint.textContent = 'Lendo especificamente NFC-e/NF-e…';
         try {
-          const result = await OcrEngine.recognize(region, null, 14000);
-          found = extractNumber(result?.text || '', cardType(card));
+          const result = await OcrEngine.recognize(region, null, 16000);
+          found = extractNumber(result?.text || '');
           if (found) break;
         } catch (_) {}
       }
@@ -234,27 +214,24 @@
       if (found && !input.value.trim()) {
         input.value = found;
         wrapper.classList.add('is-found');
-        if (hint) hint.textContent = '✓ Número localizado automaticamente. Confira antes de lançar.';
+        if (hint) hint.textContent = '✓ Número da NF localizado. Confira antes de lançar.';
       } else if (!input.value.trim()) {
-        if (hint) hint.textContent = '⚠️ Número da NF não localizado com segurança. Confira a imagem e digite manualmente.';
+        if (hint) hint.textContent = '⚠️ Número da NF não localizado com segurança. Digite o número após “NFC-e nº”.';
       }
     } catch (_) {
-      if (hint && !input.value.trim()) {
-        hint.textContent = '⚠️ Não foi possível localizar o número automaticamente. Digite conforme a NF.';
-      }
+      if (hint && !input.value.trim()) hint.textContent = '⚠️ Não foi possível localizar o número automaticamente. Digite conforme a NF.';
     } finally {
       readingCards.delete(card);
     }
   }
 
   function scheduleNumberRead(card) {
-    // Aguarda o OCR principal terminar para não disputar o mesmo worker do Tesseract.
     let tries = 0;
     const check = () => {
       tries++;
       const status = card.querySelector('[data-role="status"]')?.textContent || '';
       if (!status.includes('Lendo') || tries >= 40) {
-        setTimeout(() => readNumberFromCard(card), 150);
+        setTimeout(() => readNumberFromCard(card), 200);
         return;
       }
       setTimeout(check, 500);
@@ -299,7 +276,7 @@
     if (!grid) return;
 
     const observer = new MutationObserver(injectAll);
-    observer.observe(grid, { childList: true });
+    observer.observe(grid, { childList: true, subtree: true });
     injectAll();
 
     const confirmButton = document.getElementById('btnConfirmarAdicao');
