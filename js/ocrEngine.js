@@ -1,16 +1,9 @@
 /**
  * ocrEngine.js
- * ---------------------------------------------------------------------
- * Encapsula o Tesseract.js: cria (uma vez) um worker em português,
- * expõe recognize(canvas) com timeout obrigatório e progresso, e nunca
- * deixa a aplicação travada em "Lendo…" — se o OCR estourar o tempo ou
- * falhar, quem chamou recebe um erro e pode oferecer preenchimento
- * manual.
- * ---------------------------------------------------------------------
+ * OCR robusto para NF/DANFE/recibos fotografados.
  */
 
 const OcrEngine = (() => {
-
   const DEFAULT_TIMEOUT_MS = 25000;
   let workerPromise = null;
 
@@ -20,9 +13,7 @@ const OcrEngine = (() => {
       return Promise.reject(new Error('Biblioteca de OCR (Tesseract.js) não foi carregada.'));
     }
     workerPromise = (async () => {
-      const worker = await Tesseract.createWorker('por', 1, {
-        logger: () => {} // progresso é tratado por chamada (ver recognize)
-      });
+      const worker = await Tesseract.createWorker('por', 1, { logger: () => {} });
       return worker;
     })();
     return workerPromise;
@@ -36,34 +27,65 @@ const OcrEngine = (() => {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
+  // Cria uma versão mais legível para fotos com moiré, sombra e baixo contraste.
+  function preprocess(canvas) {
+    const scale = 1.5;
+    const out = document.createElement('canvas');
+    out.width = Math.round(canvas.width * scale);
+    out.height = Math.round(canvas.height * scale);
+    const ctx = out.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(canvas, 0, 0, out.width, out.height);
+
+    const image = ctx.getImageData(0, 0, out.width, out.height);
+    const d = image.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      // contraste local simples: reduz a aparência acinzentada da fotografia.
+      let v = (gray - 128) * 1.45 + 128;
+      v = Math.max(0, Math.min(255, v));
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(image, 0, 0);
+    return out;
+  }
+
+  async function recognizePass(worker, canvas, psm, timeoutMs) {
+    try {
+      await withTimeout(worker.setParameters({ tessedit_pageseg_mode: String(psm) }), 4000, 'configuração OCR');
+    } catch (_) { /* algumas versões ignoram o parâmetro; seguimos com o padrão */ }
+
+    const result = await withTimeout(
+      worker.recognize(canvas, {}, { text: true }),
+      timeoutMs,
+      `leitura PSM ${psm}`
+    );
+    return {
+      text: result?.data?.text || '',
+      confidence: result?.data?.confidence ?? 0
+    };
+  }
+
   /**
-   * Reconhece o texto de um canvas/imagem.
-   * @param {HTMLCanvasElement} canvas
-   * @param {(progress:number)=>void} onProgress 0..1
-   * @param {number} timeoutMs
+   * Faz duas leituras complementares. PSM 6 funciona melhor em recibos
+   * tabulares; PSM 11 funciona melhor quando há texto espalhado na foto.
+   * O texto das duas leituras é combinado para o parser contextual.
    */
   async function recognize(canvas, onProgress, timeoutMs = DEFAULT_TIMEOUT_MS) {
-    let worker;
+    const worker = await withTimeout(getWorker(), timeoutMs, 'inicialização do OCR');
     try {
-      worker = await withTimeout(getWorker(), timeoutMs, 'inicialização do OCR');
-    } catch (e) {
-      throw new Error('Não foi possível iniciar o motor de OCR. Preencha os campos manualmente.');
-    }
-
-    // Tesseract.js v5 aceita um segundo parâmetro de opções com callback de progresso
-    // por chamada de recognize (mais confiável que o logger global do worker).
-    try {
-      const result = await withTimeout(
-        worker.recognize(canvas, {}, {
-          text: true
-        }),
-        timeoutMs,
-        'leitura do documento'
-      );
+      const prepared = preprocess(canvas);
+      const pass6 = await recognizePass(worker, prepared, 6, timeoutMs);
+      if (onProgress) onProgress(0.5);
+      const pass11 = await recognizePass(worker, prepared, 11, timeoutMs);
       if (onProgress) onProgress(1);
-      const text = result?.data?.text || '';
-      const confidence = result?.data?.confidence ?? null;
-      return { text, confidence };
+
+      const parts = [pass6.text, pass11.text].filter(Boolean);
+      const text = parts.join('\n\n--- OCR COMPLEMENTAR ---\n\n');
+      return {
+        text,
+        confidence: Math.max(pass6.confidence || 0, pass11.confidence || 0)
+      };
     } catch (e) {
       if (String(e.message).startsWith('TIMEOUT')) {
         throw new Error('A leitura demorou demais e foi cancelada. Preencha os campos manualmente.');
@@ -72,12 +94,9 @@ const OcrEngine = (() => {
     }
   }
 
-  /**
-   * Tenta detectar se a imagem está de cabeça para baixo / de lado (OSD).
-   * Best-effort: se não for suportado pela versão da biblioteca ou falhar,
-   * simplesmente retorna 0 (nenhuma correção) sem quebrar o fluxo.
-   */
   async function detectOrientation(canvas, timeoutMs = 6000) {
+    // Não corrige silenciosamente uma foto que o usuário pediu para manter em pé.
+    // O app pode usar o botão Girar quando necessário.
     try {
       const worker = await withTimeout(getWorker(), timeoutMs, 'OSD');
       if (typeof worker.detect !== 'function') return 0;
@@ -86,7 +105,7 @@ const OcrEngine = (() => {
       if ([0, 90, 180, 270].includes(deg)) return deg;
       return 0;
     } catch (e) {
-      return 0; // não bloqueia o fluxo — usuário pode girar manualmente
+      return 0;
     }
   }
 
